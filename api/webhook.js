@@ -22,35 +22,35 @@ const MENU =
   `*3* · Otro / hablar con el administrador\n\n` +
   `_Escribe *menu* en cualquier momento para ver estas opciones._`;
 
+const INV = "\u2063"; // marca invisible: identifica la plantilla como mensaje del bot
+
+// Plantilla que el usuario copia, llena y envía (va en un mensaje aparte para copiarla fácil)
+const PLANTILLA =
+  `${INV}Qué necesitas y para cuándo: \n` +
+  `Nombre del solicitante: \n` +
+  `Tipo de apoyo (Maximo OT/SR, Planeación/Reportes u Otro): \n` +
+  `Número de OT, SR o reporte (si aplica): \n` +
+  `Área / equipo (si aplica): `;
+
+const INSTRUCCION =
+  `Mantén presionado el siguiente mensaje 👇, *cópialo*, llénalo y envíalo en *un solo mensaje*.`;
+
 const OPCIONES = {
   "1": {
     nombre: "Maximo (OT / SR)",
-    texto:
-      `${TAG} *Maximo (OT / SR)*\n` +
-      `Envía en *un solo mensaje*:\n` +
-      `• Número de OT o SR (si lo tienes)\n` +
-      `• Área / equipo\n` +
-      `• Qué necesitas (crear, cerrar, modificar, consultar…)`,
+    texto: `${TAG} *Maximo (OT / SR)*\n${INSTRUCCION}`,
   },
   "2": {
     nombre: "Planeación / reportes",
-    texto:
-      `${TAG} *Planeación o reportes (Excel / Power BI)*\n` +
-      `Envía en *un solo mensaje*:\n` +
-      `• Qué reporte o archivo\n` +
-      `• Qué necesitas (dato, cambio, error, acceso…)\n` +
-      `• Para cuándo lo necesitas`,
+    texto: `${TAG} *Planeación o reportes (Excel / Power BI)*\n${INSTRUCCION}`,
   },
   "3": {
     nombre: "Otro / administrador",
-    texto:
-      `${TAG} *Otro / administrador*\n` +
-      `Cuéntame brevemente en *un solo mensaje* qué necesitas y el administrador te responde por aquí.`,
+    texto: `${TAG} *Otro / administrador*\n${INSTRUCCION}`,
   },
 };
 
-const MARCA_PIDE_DETALLE = "Envía en *un solo mensaje*"; // presente en las 3 opciones
-const MARCA_PIDE_DETALLE_3 = "Cuéntame brevemente";
+const MARCA_PIDE_DETALLE = "en *un solo mensaje*"; // presente en las 3 opciones
 const CONFIRMACION =
   `${TAG} ✅ *Solicitud recibida.*\n` +
   `El administrador la revisará y te responderá por este chat lo antes posible.\n` +
@@ -58,13 +58,13 @@ const CONFIRMACION =
 
 const FUERA_HORARIO =
   `${TAG} *Fuera de horario laboral* 🕒\n` +
-  `El administrador no está disponible en este momento (atención de 7:00 a 15:30).\n\n` +
-  `Por favor deja tu mensaje *completo en un solo texto* con:\n` +
-  `• Tipo de apoyo: Maximo (OT/SR), Planeación/Reportes u Otro\n` +
-  `• Número de OT, SR o reporte (si aplica)\n` +
-  `• Área / equipo\n` +
-  `• Qué necesitas y para cuándo\n\n` +
-  `Tu solicitud se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
+  `El administrador no está disponible en este momento (atención de 6:00 a 15:30, lunes a sábado).\n\n` +
+  `Por favor deja tu solicitud *completa*. ${INSTRUCCION}\n\n` +
+  `Se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
+
+const CONFIRMACION_FUERA =
+  `${TAG} ✅ *Solicitud recibida.*\n` +
+  `Se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
 
 // ---------------- utilidades ----------------
 function minutosLocal(fecha = new Date()) {
@@ -172,11 +172,11 @@ async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msg
   // Ignora respuestas automáticas de la app WhatsApp Business (mensaje de bienvenida/ausencia):
   // son mensajes "míos" sin 🤖 que salen pocos segundos después de un mensaje del cliente.
   const esAutoApp = (m) => {
-    if (textoDe(m).startsWith(TAG)) return false;
+    if (textoDe(m).startsWith(TAG) || textoDe(m).startsWith(INV)) return false;
     const t0 = ts(m);
     return previos.some((x) => !x?.key?.fromMe && t0 - ts(x) >= 0 && t0 - ts(x) <= AUTO_APP_SEG * 1000);
   };
-  const ultimoMio = previos.find((m) => m?.key?.fromMe && !esAutoApp(m));
+  const ultimoMio = previos.find((m) => m?.key?.fromMe && !esAutoApp(m) && !textoDe(m).startsWith(INV));
   const textoMio = ultimoMio ? textoDe(ultimoMio) : "";
   const horasMio = ultimoMio ? horasDesde(ts(ultimoMio)) : Infinity;
   const esDelBot = textoMio.startsWith(TAG);
@@ -186,19 +186,24 @@ async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msg
 
   // 1b) Fuera de horario (15:30–18:00): avisa una sola vez y deja que escriban su solicitud
   if (esFueraDeHorario()) {
-    if (esDelBot && textoMio.includes("Fuera de horario") && horasMio < 3) return { responder: null };
-    return { responder: FUERA_HORARIO };
+    // ya avisó -> este mensaje es la solicitud: confirma una vez
+    if (esDelBot && textoMio.includes("Fuera de horario") && horasMio < 3) {
+      return { responder: CONFIRMACION_FUERA, solicitud: { opcion: "Fuera de horario", texto } };
+    }
+    // ya confirmó -> silencio
+    if (esDelBot && textoMio.includes("Solicitud recibida") && horasMio < 3) return { responder: null };
+    return { responder: [FUERA_HORARIO, PLANTILLA] };
   }
 
   if (esDelBot && horasMio < OPTION_WINDOW_HOURS) {
     // 2) El bot pidió detalles -> este mensaje es la solicitud
-    if (textoMio.includes(MARCA_PIDE_DETALLE) || textoMio.includes(MARCA_PIDE_DETALLE_3)) {
+    if (textoMio.includes(MARCA_PIDE_DETALLE) && !textoMio.includes("Fuera de horario")) {
       const opcion = Object.values(OPCIONES).find((o) => textoMio.includes(o.nombre.split(" ")[0]));
       return { responder: CONFIRMACION, solicitud: { opcion: opcion?.nombre || "?", texto } };
     }
     // 3) El bot mandó el menú -> esperamos 1, 2 o 3
     if (textoMio.includes("Responde con el *número*")) {
-      if (OPCIONES[t]) return { responder: OPCIONES[t].texto };
+      if (OPCIONES[t]) return { responder: [OPCIONES[t].texto, PLANTILLA] };
       return { responder: `${TAG} No entendí 🙈 Responde solo con *1*, *2* o *3*.` };
     }
   }
@@ -209,7 +214,7 @@ async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msg
   }
 
   // 5) Si escribe directo 1/2/3 sin menú previo, igual lo atendemos
-  if (OPCIONES[t]) return { responder: OPCIONES[t].texto };
+  if (OPCIONES[t]) return { responder: [OPCIONES[t].texto, PLANTILLA] };
 
   // 6) Cualquier otro caso -> menú
   return { responder: menu };
@@ -252,7 +257,8 @@ export default async function handler(req, res) {
 
     // WhatsApp ahora usa identificadores "@lid"; respondemos al número real si viene
     const destino = key.remoteJidAlt || key.senderPn || remoteJid;
-    if (r.responder) await enviar(serverUrl, apikey, instance, destino, r.responder);
+    const mensajes = Array.isArray(r.responder) ? r.responder : r.responder ? [r.responder] : [];
+    for (const m of mensajes) await enviar(serverUrl, apikey, instance, destino, m);
 
     if (r.solicitud && ADMIN_NOTIFY_NUMBER) {
       const tel = (key.senderPn || key.remoteJidAlt || remoteJid).split("@")[0];
