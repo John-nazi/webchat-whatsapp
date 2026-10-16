@@ -14,13 +14,26 @@ const FUERA_HASTA = "18:00"; // hasta esta hora (después Render se duerme)
 
 const TAG = "🤖"; // todos los mensajes del bot empiezan con esto (así distingue bot vs. humano)
 
+const NOMBRE_BOT = "Asistente Bot de Planeación John";
+const LINEA = "━━━━━━━━━━━━━━━━";
+const ENCABEZADO = `${TAG} *${NOMBRE_BOT}*`;
+const REGRESAR = `🔁 _¿Necesitas otra cosa? En cualquier momento responde *1*, *2* o *3* para elegir otra opción._`;
+
 const MENU =
-  `${TAG} *Soporte Mantenimiento*\n` +
-  `¡Hola{NOMBRE}! Responde con el *número* de la opción:\n\n` +
-  `*1* · Maximo (OT / SR)\n` +
-  `*2* · Planeación o reportes (Excel / Power BI)\n` +
-  `*3* · Otro / hablar con el administrador\n\n` +
-  `_Escribe *menu* en cualquier momento para ver estas opciones._`;
+  `${ENCABEZADO}\n${LINEA}\n` +
+  `{SALUDO}\n` +
+  `Soy tu asistente virtual 🧠⚡ ¿En qué te puedo apoyar?\n` +
+  `Responde con el *número* de la opción:\n\n` +
+  `1️⃣  🛠️ Maximo (OT / SR)\n` +
+  `2️⃣  📊 Planeación o reportes (Excel / Power BI)\n` +
+  `3️⃣  💬 Otro / hablar con el administrador\n` +
+  `${LINEA}\n` +
+  `🔁 _En cualquier momento puedes responder *1*, *2* o *3* para cambiar de opción._`;
+
+const DESPEDIDA =
+  `${ENCABEZADO}\n` +
+  `🙌 ¡Fue un placer apoyarte! Saludos, que estés muy bien. 👋\n` +
+  `${REGRESAR}`;
 
 const INV = "\u2063"; // marca invisible: identifica la plantilla como mensaje del bot
 
@@ -38,35 +51,54 @@ const INSTRUCCION =
 const OPCIONES = {
   "1": {
     nombre: "Maximo (OT / SR)",
-    texto: `${TAG} *Maximo (OT / SR)*\n${INSTRUCCION}`,
+    texto: `${ENCABEZADO}\n🛠️ *Maximo (OT / SR)* — opción seleccionada ✅\n\n📝 ${INSTRUCCION}`,
   },
   "2": {
     nombre: "Planeación / reportes",
-    texto: `${TAG} *Planeación o reportes (Excel / Power BI)*\n${INSTRUCCION}`,
+    texto: `${ENCABEZADO}\n📊 *Planeación o reportes (Excel / Power BI)* — opción seleccionada ✅\n\n📝 ${INSTRUCCION}`,
   },
   "3": {
     nombre: "Otro / administrador",
-    texto: `${TAG} *Otro / administrador*\n${INSTRUCCION}`,
+    texto: `${ENCABEZADO}\n💬 *Otro / administrador* — opción seleccionada ✅\n\n📝 ${INSTRUCCION}`,
   },
 };
 
 const MARCA_PIDE_DETALLE = "en *un solo mensaje*"; // presente en las 3 opciones
 const CONFIRMACION =
-  `${TAG} ✅ *Solicitud recibida.*\n` +
-  `El administrador la revisará y te responderá por este chat lo antes posible.\n` +
-  `_Escribe *menu* si necesitas otra cosa._`;
+  `${ENCABEZADO}\n` +
+  `✅ *Solicitud recibida y registrada.* 📥\n` +
+  `El administrador la revisará y te responderá por este chat lo antes posible. ⏱️\n\n` +
+  `${REGRESAR}`;
 
 const FUERA_HORARIO =
-  `${TAG} *Fuera de horario laboral* 🕒\n` +
+  `${ENCABEZADO}\n${LINEA}\n` +
+  `{SALUDO}\n` +
+  `🕒 *Fuera de horario laboral*\n` +
   `El administrador no está disponible en este momento (atención de 6:00 a 15:30, lunes a sábado).\n\n` +
-  `Por favor deja tu solicitud *completa*. ${INSTRUCCION}\n\n` +
-  `Se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
+  `📝 Por favor deja tu solicitud *completa*. ${INSTRUCCION}\n\n` +
+  `📅 Se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
 
 const CONFIRMACION_FUERA =
-  `${TAG} ✅ *Solicitud recibida.*\n` +
-  `Se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
+  `${ENCABEZADO}\n` +
+  `✅ *Solicitud recibida y registrada.* 📥\n` +
+  `📅 Se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
 
 // ---------------- utilidades ----------------
+function normalizar(txt) {
+  return txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9ñ\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+const RE_SALUDO = /^(hola+|holi|buen(os)? dia(s)?|buenas( tardes| noches| dias)?|buen dia|que onda|hey|saludos cordiales)\b/;
+const RE_COMO_ESTAS = /\b(como (estas|esta|te va|le va|va todo|andas|amaneciste)|que tal)\b/;
+const RE_GRACIAS = /\b(gracias|grax|thank|saludos|hasta luego|hasta pronto|bye|adios|nos vemos|buen fin|bonito dia|excelente dia|que este(s)? bien)\b/;
+
+function saludoSegunHora(nombre) {
+  const h = Math.floor(minutosLocal() / 60);
+  if (h < 12) return `☀️ ¡Buenos días${nombre}! Un gusto saludarte.`;
+  if (h < 19) return `🌤️ ¡Buenas tardes${nombre}! Un gusto saludarte.`;
+  return `🌙 ¡Buenas noches${nombre}! Un gusto saludarte.`;
+}
+
 function minutosLocal(fecha = new Date()) {
   const p = new Intl.DateTimeFormat("en-GB", { timeZone: ZONA, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
     .formatToParts(fecha);
@@ -153,18 +185,22 @@ async function historial(serverUrl, apikey, instance, jids) {
 // ---------------- lógica principal ----------------
 async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msgId }) {
   const t = texto.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  const n = normalizar(texto);
   const nombre = pushName ? ` ${pushName.split(" ")[0]}` : "";
-  const menu = MENU.replace("{NOMBRE}", nombre);
+  const corto = n.length <= 60 && !n.includes("solicitante");
 
-  if (t === "menu" || t === "menú" || t === "inicio") {
-    return { responder: menu };
-  }
+  const esSaludo = corto && RE_SALUDO.test(n);
+  const preguntaComoEstas = corto && RE_COMO_ESTAS.test(n);
+  const esGracias = corto && RE_GRACIAS.test(n) && !esSaludo;
+
+  let saludo = `👋 ¡Hola${nombre}!`;
+  if (esSaludo) saludo = saludoSegunHora(nombre);
+  if (preguntaComoEstas) saludo = (esSaludo ? saludo + "\n" : "") + `😊 ¡Todo en orden, gracias por preguntar${esSaludo ? "" : nombre}!`;
+  const menu = MENU.replace("{SALUDO}", saludo);
 
   let previos = [];
   try {
-    previos = (await historial(serverUrl, apikey, instance, jids)).filter(
-      (m) => m?.key?.id !== msgId
-    );
+    previos = (await historial(serverUrl, apikey, instance, jids)).filter((m) => m?.key?.id !== msgId);
   } catch (e) {
     console.warn("No se pudo leer historial:", e.message);
   }
@@ -184,39 +220,54 @@ async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msg
   // 1) Tú contestaste a mano hace poco -> el bot no se mete
   if (ultimoMio && !esDelBot && horasMio < HUMAN_PAUSE_HOURS) return { responder: null };
 
-  // 1b) Fuera de horario (15:30–18:00): avisa una sola vez y deja que escriban su solicitud
-  if (esFueraDeHorario()) {
-    // ya avisó -> este mensaje es la solicitud: confirma una vez
-    if (esDelBot && textoMio.includes("Fuera de horario") && horasMio < 3) {
-      return { responder: CONFIRMACION_FUERA, solicitud: { opcion: "Fuera de horario", texto } };
-    }
-    // ya confirmó -> silencio
-    if (esDelBot && textoMio.includes("Solicitud recibida") && horasMio < 3) return { responder: null };
-    return { responder: [FUERA_HORARIO, PLANTILLA] };
+  // 2) Gracias / saludos de despedida -> se despide (una vez)
+  if (esGracias) {
+    if (esDelBot && textoMio.includes("placer apoyarte") && horasMio < HUMAN_PAUSE_HOURS) return { responder: null };
+    return { responder: DESPEDIDA };
   }
 
+  // 3) Fuera de horario (15:30–18:00): avisa una vez, recibe la solicitud y confirma
+  if (esFueraDeHorario()) {
+    if (!esSaludo && !preguntaComoEstas) {
+      if (esDelBot && textoMio.includes("Fuera de horario") && horasMio < 3) {
+        return { responder: CONFIRMACION_FUERA, solicitud: { opcion: "Fuera de horario", texto } };
+      }
+      if (esDelBot && textoMio.includes("Solicitud recibida") && horasMio < 3) return { responder: null };
+    }
+    return { responder: [FUERA_HORARIO.replace("{SALUDO}", saludo), PLANTILLA] };
+  }
+
+  // 4) Saludo, "¿cómo estás?" o "menu" -> saludo cordial + opciones
+  if (esSaludo || preguntaComoEstas || t === "menu" || t === "menú" || t === "inicio" || t === "opciones") {
+    return { responder: menu };
+  }
+
+  // 5) Eligió (o cambió a) una opción 1, 2 o 3 -> en cualquier momento
+  if (OPCIONES[t]) return { responder: [OPCIONES[t].texto, PLANTILLA] };
+
   if (esDelBot && horasMio < OPTION_WINDOW_HOURS) {
-    // 2) El bot pidió detalles -> este mensaje es la solicitud
+    // 6) El bot pidió detalles -> este mensaje es la solicitud
     if (textoMio.includes(MARCA_PIDE_DETALLE) && !textoMio.includes("Fuera de horario")) {
       const opcion = Object.values(OPCIONES).find((o) => textoMio.includes(o.nombre.split(" ")[0]));
       return { responder: CONFIRMACION, solicitud: { opcion: opcion?.nombre || "?", texto } };
     }
-    // 3) El bot mandó el menú -> esperamos 1, 2 o 3
+    // 7) El bot mandó el menú y no contestó 1, 2 o 3
     if (textoMio.includes("Responde con el *número*")) {
-      if (OPCIONES[t]) return { responder: [OPCIONES[t].texto, PLANTILLA] };
-      return { responder: `${TAG} No entendí 🙈 Responde solo con *1*, *2* o *3*.` };
+      return { responder: `${ENCABEZADO}\n🙈 No entendí tu respuesta.\n👉 Responde solo con *1*, *2* o *3*.` };
     }
   }
 
-  // 4) Ya se confirmó una solicitud hace poco -> silencio (la atiende el admin)
+  // 8) Ya se confirmó una solicitud hace poco -> silencio (la atiende el admin)
   if (esDelBot && textoMio.includes("Solicitud recibida") && horasMio < HUMAN_PAUSE_HOURS) {
     return { responder: null };
   }
 
-  // 5) Si escribe directo 1/2/3 sin menú previo, igual lo atendemos
-  if (OPCIONES[t]) return { responder: [OPCIONES[t].texto, PLANTILLA] };
+  // 8b) Ya se despidió hace poco -> silencio (ej. "ok", "👍")
+  if (esDelBot && textoMio.includes("placer apoyarte") && horasMio < HUMAN_PAUSE_HOURS) {
+    return { responder: null };
+  }
 
-  // 6) Cualquier otro caso -> menú
+  // 9) Cualquier otro caso -> saludo + menú
   return { responder: menu };
 }
 
