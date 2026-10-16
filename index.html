@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#008069">
+<title>Soporte</title>
+<style>
+  :root{
+    --verde:#00A884;
+    --header:#008069;
+    --fondo:#EFE7DE;
+    --bot:#FFFFFF;
+    --usuario:#D9FDD3;
+    --hora:#667781;
+    --linea:#F0F2F5;
+    --gris-off:#A6B0B5;
+    --texto:#111B21;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--texto)}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:600px;margin:0 auto;background:var(--fondo);position:relative}
+
+  /* Header */
+  header{background:var(--header);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top));flex:0 0 auto;box-shadow:0 1px 3px rgba(0,0,0,.2);z-index:2}
+  .avatar{width:40px;height:40px;border-radius:50%;background:#DFE5E7;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .avatar svg{width:26px;height:26px;fill:#fff}
+  .avatar{background:#6B7C85}
+  .titulo{font-size:17px;font-weight:500;line-height:1.2}
+  .estado{font-size:12.5px;opacity:.85}
+
+  /* Chat */
+  #chat{flex:1 1 auto;overflow-y:auto;padding:12px 10px 8px;display:flex;flex-direction:column;gap:6px;
+    background-color:var(--fondo);
+    background-image:
+      radial-gradient(rgba(0,0,0,.045) 1.3px, transparent 1.6px),
+      radial-gradient(rgba(0,0,0,.03) 1px, transparent 1.3px);
+    background-size:26px 26px, 26px 26px;
+    background-position:0 0, 13px 13px;
+    -webkit-overflow-scrolling:touch}
+  .fecha{align-self:center;background:#FFF;color:var(--hora);font-size:12.5px;padding:5px 12px;border-radius:8px;box-shadow:0 1px 0 rgba(11,20,26,.13);margin:4px 0 6px}
+
+  .fila{display:flex;width:100%;animation:entrar .18s ease-out}
+  .fila.bot{justify-content:flex-start}
+  .fila.usuario{justify-content:flex-end}
+  @keyframes entrar{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .burbuja{max-width:86%;border-radius:12px;box-shadow:0 1px 0.5px rgba(11,20,26,.13);overflow:hidden;font-size:15px;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere}
+  .bot .burbuja{background:var(--bot);border-top-left-radius:2px}
+  .usuario .burbuja{background:var(--usuario);border-top-right-radius:2px}
+  .cuerpo{padding:7px 9px 6px}
+  .cuerpo .msg{white-space:normal}
+  .meta{display:flex;justify-content:flex-end;align-items:center;gap:3px;font-size:11.5px;color:var(--hora);margin-top:2px;line-height:1}
+  .check{color:#53BDEB;font-size:13px;letter-spacing:-3px;margin-left:1px}
+  .bot .burbuja.con-botones{min-width:min(78%,270px)}
+  .cuerpo a{color:var(--verde);font-weight:500}
+
+  /* Botones dentro de la burbuja */
+  .botones{display:flex;flex-direction:column}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px 10px;border:0;border-top:1px solid var(--linea);background:#FFF;color:var(--verde);font:inherit;font-size:14.5px;font-weight:500;cursor:pointer;text-align:center}
+  .btn:active{background:#F5F6F6}
+  .btn svg{width:18px;height:18px;flex:0 0 auto;fill:currentColor}
+  .btn:disabled{color:var(--gris-off);cursor:default;background:#FFF}
+
+  /* Escribiendo... */
+  .escribiendo .burbuja{padding:12px 14px;display:flex;gap:4px;align-items:center}
+  .punto{width:7px;height:7px;border-radius:50%;background:#90A4AE;animation:salto 1.2s infinite ease-in-out}
+  .punto:nth-child(2){animation-delay:.15s}
+  .punto:nth-child(3){animation-delay:.3s}
+  @keyframes salto{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+
+  /* Barra inferior */
+  footer{flex:0 0 auto;background:var(--linea);display:flex;align-items:center;gap:8px;padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  #entrada{flex:1;border:0;outline:0;background:#FFF;border-radius:24px;padding:11px 16px;font:inherit;font-size:16px;color:var(--texto)}
+  #entrada:disabled{background:#E9EDEF;cursor:not-allowed}
+  #entrada::placeholder{color:#8696A0}
+  #enviar{width:44px;height:44px;border-radius:50%;border:0;background:var(--verde);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:opacity .15s}
+  #enviar svg{width:22px;height:22px;fill:#fff}
+  #enviar:disabled{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="avatar">
+      <svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0 2.25c-3 0-9 1.5-9 4.5V21h18v-2.25c0-3-6-4.5-9-4.5Z"/></svg>
+    </div>
+    <div>
+      <div class="titulo">Solicitudes de Apoyo</div>
+      <div class="estado">en línea</div>
+    </div>
+  </header>
+
+  <main id="chat" aria-live="polite">
+    <div class="fecha">Hoy</div>
+  </main>
+
+  <footer>
+    <input id="entrada" type="text" placeholder="Escriba un mensaje..." autocomplete="off" disabled>
+    <button id="enviar" aria-label="Enviar" disabled>
+      <svg viewBox="0 0 24 24"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   CONFIGURACIÓN
+   ========================================================= */
+const WA_NUMERO   = "528126219127";   // Número receptor (código de país + número, sin + ni espacios)
+const WEBHOOK_URL = "";               // Opcional: URL de Power Automate / SharePoint / Telegram bot. Vacío = no se envía.
+const RETRASO_ESCRIBIENDO = 450;      // ms de la animación "Escribiendo..."
+
+/* =========================================================
+   FLUJO DE CONVERSACIÓN (edita aquí textos y opciones)
+   - texto: string o función (datos) => string. Soporta *negritas* de WhatsApp.
+   - botones: [{ label, valor?, campo?, siguiente?, accion? }]
+   - input: true  => habilita la barra de texto en ese paso
+   - campo / siguiente (a nivel de paso) se usan cuando el usuario escribe texto
+   ========================================================= */
+const FLUJO = {
+  inicio: {
+    texto: "¡Hola! 👋 Bienvenido al canal de apoyo.\n¿Qué servicio necesitas?",
+    botones: [
+      { label: "Maximo (OT o SR)",                       campo: "servicio",  siguiente: "prioridad" },
+      { label: "Planeación o reportes (Excel/Power BI)", campo: "servicio",  siguiente: "prioridad" },
+      { label: "Otro (Pasar con administrador)",         campo: "servicio",  siguiente: "prioridad" }
+    ]
+  },
+
+  prioridad: {
+    texto: "¿Qué nivel de prioridad tiene tu solicitud?",
+    botones: [
+      { label: "🔴 Alta (urgente)", valor: "Alta",  campo: "prioridad", siguiente: "pedir_detalle" },
+      { label: "🟡 Media",          valor: "Media", campo: "prioridad", siguiente: "pedir_detalle" },
+      { label: "🟢 Baja",           valor: "Baja",  campo: "prioridad", siguiente: "pedir_detalle" }
+    ]
+  },
+
+  pedir_detalle: {
+    texto: "Escribe tu *nombre, área o un comentario adicional* en la barra de abajo 👇\nO toca \"Omitir comentario\".",
+    input: true,
+    campo: "detalle",
+    siguiente: "final",
+    botones: [
+      { label: "Omitir comentario", valor: "", campo: "detalle", siguiente: "final" }
+    ]
+  },
+
+  final: {
+    texto: (d) =>
+      "Estos son los datos de tu solicitud:\n\n" +
+      "*Servicio:* " + d.servicio + "\n" +
+      "*Prioridad:* " + d.prioridad + "\n" +
+      "*Detalle:* " + (d.detalle || "Sin comentarios") + "\n\n" +
+      "¿Todo correcto?",
+    botones: [
+      { label: "Confirmar y Enviar", accion: "enviar" }
+    ]
+  }
+};
+
+/* =========================================================
+   MOTOR DEL CHAT
+   ========================================================= */
+const chat    = document.getElementById("chat");
+const entrada = document.getElementById("entrada");
+const btnEnv  = document.getElementById("enviar");
+
+const datos = {};
+let pasoActual = null;
+let bloqueado = false;
+let ultimaBurbujaBot = null;
+
+const ICONO_REPLY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>';
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function hora() {
+  return new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+// Convierte *texto* en negritas y respeta saltos de línea (escapando HTML antes)
+function formatear(s) {
+  return esc(s).replace(/\*([^*\n]+)\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+}
+
+function bajar() {
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function setInput(habilitado) {
+  entrada.disabled = !habilitado;
+  btnEnv.disabled  = !habilitado;
+  if (habilitado) entrada.focus();
+  else entrada.blur();
+}
+
+function mostrarEscribiendo() {
+  const fila = document.createElement("div");
+  fila.className = "fila bot escribiendo";
+  fila.innerHTML = '<div class="burbuja"><span class="punto"></span><span class="punto"></span><span class="punto"></span></div>';
+  chat.appendChild(fila);
+  bajar();
+  return fila;
+}
+
+function burbujaUsuario(texto) {
+  const fila = document.createElement("div");
+  fila.className = "fila usuario";
+  fila.innerHTML =
+    '<div class="burbuja"><div class="cuerpo">' +
+      '<div class="msg">' + formatear(texto) + '</div>' +
+      '<div class="meta"><span>' + hora() + '</span><span class="check">✓✓</span></div>' +
+    '</div></div>';
+  chat.appendChild(fila);
+  bajar();
+}
+
+// Crea una burbuja del bot. htmlTexto ya viene formateado. botones: array o null
+function burbujaBot(htmlTexto, botones, onClick) {
+  const fila = document.createElement("div");
+  fila.className = "fila bot";
+
+  const burbuja = document.createElement("div");
+  burbuja.className = "burbuja" + (botones && botones.length ? " con-botones" : "");
+
+  const cuerpo = document.createElement("div");
+  cuerpo.className = "cuerpo";
+  cuerpo.innerHTML =
+    '<div class="msg">' + htmlTexto + '</div>' +
+    '<div class="meta"><span>' + hora() + '</span></div>';
+  burbuja.appendChild(cuerpo);
+
+  if (botones && botones.length) {
+    const cont = document.createElement("div");
+    cont.className = "botones";
+    botones.forEach(op => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn";
+      b.innerHTML = ICONO_REPLY + "<span>" + esc(op.label) + "</span>";
+      b.addEventListener("click", () => onClick(op, burbuja));
+      cont.appendChild(b);
+    });
+    burbuja.appendChild(cont);
+  }
+
+  fila.appendChild(burbuja);
+  chat.appendChild(fila);
+  bajar();
+  return burbuja;
+}
+
+function deshabilitarBotones(burbuja) {
+  if (!burbuja) return;
+  burbuja.querySelectorAll(".btn").forEach(b => { b.disabled = true; });
+}
+
+async function irAPaso(id) {
+  const paso = FLUJO[id];
+  if (!paso) { console.error("Paso no existe:", id); return; }
+  pasoActual = id;
+
+  const escribiendo = mostrarEscribiendo();
+  await sleep(RETRASO_ESCRIBIENDO);
+  escribiendo.remove();
+
+  const texto = typeof paso.texto === "function" ? paso.texto(datos) : paso.texto;
+  ultimaBurbujaBot = burbujaBot(formatear(texto), paso.botones, onBoton);
+
+  setInput(!!paso.input);
+  bloqueado = false;
+}
+
+function onBoton(opcion, burbuja) {
+  if (bloqueado) return;
+  bloqueado = true;
+
+  deshabilitarBotones(burbuja);
+  setInput(false);
+  burbujaUsuario(opcion.label);
+
+  if (opcion.campo) datos[opcion.campo] = (opcion.valor !== undefined) ? opcion.valor : opcion.label;
+
+  if (opcion.accion === "enviar") { procesarEnvioFinal(); return; }
+  if (opcion.siguiente) irAPaso(opcion.siguiente);
+}
+
+function enviarTexto() {
+  const paso = FLUJO[pasoActual];
+  if (!paso || !paso.input || bloqueado || entrada.disabled) return;
+  const t = entrada.value.trim();
+  if (!t) return;
+
+  bloqueado = true;
+  deshabilitarBotones(ultimaBurbujaBot);
+  setInput(false);
+  burbujaUsuario(t);
+  entrada.value = "";
+
+  if (paso.campo) datos[paso.campo] = t;
+  if (paso.siguiente) irAPaso(paso.siguiente);
+}
+
+btnEnv.addEventListener("click", enviarTexto);
+entrada.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); enviarTexto(); } });
+
+/* =========================================================
+   ENVÍO FINAL: webhook opcional + redirección a WhatsApp
+   ========================================================= */
+async function procesarEnvioFinal() {
+  const servicio  = datos.servicio  || "No especificado";
+  const prioridad = datos.prioridad || "No especificada";
+  const detalle   = datos.detalle   || "Sin comentarios";
+
+  const mensaje =
+    "*Nueva Solicitud de Apoyo*\n\n" +
+    "*Servicio:* "  + servicio  + "\n" +
+    "*Prioridad:* " + prioridad + "\n" +
+    "*Detalle:* "   + detalle;
+
+  const url = "https://wa.me/" + WA_NUMERO + "?text=" + encodeURIComponent(mensaje);
+
+  const escribiendo = mostrarEscribiendo();
+  await sleep(RETRASO_ESCRIBIENDO);
+  escribiendo.remove();
+  burbujaBot(formatear("✅ ¡Listo! Abriendo WhatsApp para enviar tu solicitud..."), null);
+
+  // 1) Envío opcional al webhook (no bloquea más de 3 s)
+  if (WEBHOOK_URL) {
+    const payload = {
+      fecha: new Date().toISOString(),
+      servicio, prioridad, detalle,
+      mensaje,
+      userAgent: navigator.userAgent
+    };
+    try {
+      await Promise.race([
+        fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true
+        }),
+        sleep(3000)
+      ]);
+    } catch (err) {
+      console.warn("No se pudo enviar al webhook:", err);
+    }
+  }
+
+  // 2) Redirección a WhatsApp
+  window.location.href = url;
+
+  // Respaldo por si la redirección no se dispara
+  setTimeout(() => {
+    burbujaBot('Si no se abrió automáticamente, <a href="' + esc(url) + '">toca aquí para abrir WhatsApp</a>.', null);
+  }, 2500);
+}
+
+/* =========================================================
+   INICIO
+   ========================================================= */
+irAPaso("inicio");
+</script>
+</body>
+</html>
