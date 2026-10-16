@@ -8,6 +8,9 @@ const ADMIN_NOTIFY_NUMBER = process.env.ADMIN_NOTIFY_NUMBER || ""; // opcional, 
 const HUMAN_PAUSE_HOURS = 10 / 60; // si tú contestas a mano, el bot se calla 10 minutos
 const OPTION_WINDOW_HOURS = 2; // tiempo para contestar el menú / mandar detalles
 const AUTO_APP_SEG = 30; // un mensaje tuyo sin 🤖 enviado <30 s después del cliente = respuesta automática de la app
+const ZONA = "America/Monterrey";
+const FUERA_DESDE = "15:30"; // desde esta hora el bot avisa que el administrador no está
+const FUERA_HASTA = "18:00"; // hasta esta hora (después Render se duerme)
 
 const TAG = "🤖"; // todos los mensajes del bot empiezan con esto (así distingue bot vs. humano)
 
@@ -53,7 +56,33 @@ const CONFIRMACION =
   `El administrador la revisará y te responderá por este chat lo antes posible.\n` +
   `_Escribe *menu* si necesitas otra cosa._`;
 
+const FUERA_HORARIO =
+  `${TAG} *Fuera de horario laboral* 🕒\n` +
+  `El administrador no está disponible en este momento (atención de 7:00 a 15:30).\n\n` +
+  `Por favor deja tu mensaje *completo en un solo texto* con:\n` +
+  `• Tipo de apoyo: Maximo (OT/SR), Planeación/Reportes u Otro\n` +
+  `• Número de OT, SR o reporte (si aplica)\n` +
+  `• Área / equipo\n` +
+  `• Qué necesitas y para cuándo\n\n` +
+  `Tu solicitud se revisará a primera hora del siguiente día hábil. ¡Gracias!`;
+
 // ---------------- utilidades ----------------
+function minutosLocal(fecha = new Date()) {
+  const p = new Intl.DateTimeFormat("en-GB", { timeZone: ZONA, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .formatToParts(fecha);
+  const h = Number(p.find((x) => x.type === "hour").value);
+  const m = Number(p.find((x) => x.type === "minute").value);
+  return h * 60 + m;
+}
+function aMin(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+function esFueraDeHorario(fecha = new Date()) {
+  const ahora = minutosLocal(fecha);
+  return ahora >= aMin(FUERA_DESDE) && ahora < aMin(FUERA_HASTA);
+}
+
 function textoDe(msg) {
   const m = msg?.message || {};
   return (
@@ -154,6 +183,12 @@ async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msg
 
   // 1) Tú contestaste a mano hace poco -> el bot no se mete
   if (ultimoMio && !esDelBot && horasMio < HUMAN_PAUSE_HOURS) return { responder: null };
+
+  // 1b) Fuera de horario (15:30–18:00): avisa una sola vez y deja que escriban su solicitud
+  if (esFueraDeHorario()) {
+    if (esDelBot && textoMio.includes("Fuera de horario") && horasMio < 3) return { responder: null };
+    return { responder: FUERA_HORARIO };
+  }
 
   if (esDelBot && horasMio < OPTION_WINDOW_HOURS) {
     // 2) El bot pidió detalles -> este mensaje es la solicitud
