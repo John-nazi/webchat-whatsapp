@@ -108,7 +108,7 @@
    CONFIGURACIÓN
    ========================================================= */
 const WA_NUMERO   = "528126219127";   // Número receptor (código de país + número, sin + ni espacios)
-const WEBHOOK_URL = "";               // Opcional: URL de Power Automate u otro servicio.
+const WEBHOOK_URL = "https://default80f3ea7d0e2945919f60bc5201a914.99.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/02/workflows/3323e6d750eb47aea23acb5c1ee06af2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=qEeSkU34NAToa18W2FRC2ztTRMoa2eEyxzC7o12gYDY";               // Opcional: URL de Power Automate u otro servicio.
 // Aviso automático (sin abrir WhatsApp). Si llenas Telegram o WEBHOOK_URL, la solicitud se envía sola.
 const TELEGRAM_TOKEN   = "";          // Token del bot (de @BotFather)
 const TELEGRAM_CHAT_ID = "";          // Chat ID de quien atiende las solicitudes
@@ -371,21 +371,17 @@ async function procesarEnvioFinal() {
     } catch (err) { console.warn("Telegram falló:", err); }
   }
 
-  // 2) Webhook opcional (Power Automate, etc.)
+  // 2) Power Automate (aviso por correo/Teams a quien atiende).
+  //    text/plain + no-cors evita el bloqueo CORS; la respuesta es opaca, por eso se asume enviado si no hubo error de red.
   if (WEBHOOK_URL) {
-    const payload = {
-      fecha: new Date().toISOString(),
-      servicio, tipo: datos.tipo || "", referencia: datos.referencia || "", prioridad, detalle,
-      mensaje,
-      userAgent: navigator.userAgent
-    };
     try {
-      const r = await conTimeout(fetch(WEBHOOK_URL, {
+      await conTimeout(fetch(WEBHOOK_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: mensaje.replace(/\*/g, "").replace(/\n/g, "<br>")
       }));
-      if (r.ok) enviado = true;
+      enviado = true;
     } catch (err) { console.warn("Webhook falló:", err); }
   }
 
