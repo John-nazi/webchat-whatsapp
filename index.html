@@ -120,11 +120,30 @@ const RETRASO_ESCRIBIENDO = 450;      // ms de la animación "Escribiendo..."
    ========================================================= */
 const FLUJO = {
   inicio: {
-    texto: "¡Hola! 👋 Bienvenido al canal de apoyo.\n¿Qué servicio necesitas?",
+    texto: "Buen día 👋 Bienvenido al canal de apoyo.\n¿Con qué necesitas apoyo?",
     botones: [
-      { label: "Maximo (OT o SR)",                       campo: "servicio",  siguiente: "prioridad" },
-      { label: "Planeación o reportes (Excel/Power BI)", campo: "servicio",  siguiente: "prioridad" },
-      { label: "Otro (Pasar con administrador)",         campo: "servicio",  siguiente: "prioridad" }
+      { label: "Maximo (OT o SR)",                       campo: "servicio", siguiente: "tipo_maximo" },
+      { label: "Planeación o reportes (Excel/Power BI)", campo: "servicio", siguiente: "prioridad" },
+      { label: "Otro (Pasar con administrador)",         campo: "servicio", siguiente: "prioridad" }
+    ]
+  },
+
+  tipo_maximo: {
+    texto: "Entendido. ¿Corresponde a una OT, un SR o alguna otra función de Maximo?",
+    botones: [
+      { label: "OT",                  campo: "tipo", siguiente: "pedir_numero" },
+      { label: "SR",                  campo: "tipo", siguiente: "pedir_numero" },
+      { label: "Otra función Maximo", campo: "tipo", siguiente: "prioridad" }
+    ]
+  },
+
+  pedir_numero: {
+    texto: (d) => "¿Me compartes el número de " + d.tipo + "? Escríbelo en la barra de abajo 👇\nO toca \"Aún no lo tengo\".",
+    input: true,
+    campo: "referencia",
+    siguiente: "prioridad",
+    botones: [
+      { label: "Aún no lo tengo", valor: "", campo: "referencia", siguiente: "prioridad" }
     ]
   },
 
@@ -138,7 +157,7 @@ const FLUJO = {
   },
 
   pedir_detalle: {
-    texto: "Escribe tu *nombre, área o un comentario adicional* en la barra de abajo 👇\nO toca \"Omitir comentario\".",
+    texto: "¿Qué necesitas realizar o revisar? Cuéntame en la barra de abajo 👇\nSi puedes, incluye tu *nombre completo y el área a la que perteneces*.\nO toca \"Omitir comentario\".",
     input: true,
     campo: "detalle",
     siguiente: "final",
@@ -149,8 +168,10 @@ const FLUJO = {
 
   final: {
     texto: (d) =>
-      "Estos son los datos de tu solicitud:\n\n" +
+      "Gracias por la información. Estos son los datos de tu solicitud:\n\n" +
       "*Servicio:* " + d.servicio + "\n" +
+      (d.tipo ? "*Tipo:* " + d.tipo + "\n" : "") +
+      (d.referencia ? "*Número:* " + d.referencia + "\n" : "") +
       "*Prioridad:* " + d.prioridad + "\n" +
       "*Detalle:* " + (d.detalle || "Sin comentarios") + "\n\n" +
       "¿Todo correcto?",
@@ -321,6 +342,8 @@ async function procesarEnvioFinal() {
   const mensaje =
     "*Nueva Solicitud de Apoyo*\n\n" +
     "*Servicio:* "  + servicio  + "\n" +
+    (datos.tipo ? "*Tipo:* " + datos.tipo + "\n" : "") +
+    (datos.referencia ? "*Número:* " + datos.referencia + "\n" : "") +
     "*Prioridad:* " + prioridad + "\n" +
     "*Detalle:* "   + detalle;
 
@@ -335,7 +358,7 @@ async function procesarEnvioFinal() {
   if (WEBHOOK_URL) {
     const payload = {
       fecha: new Date().toISOString(),
-      servicio, prioridad, detalle,
+      servicio, tipo: datos.tipo || "", referencia: datos.referencia || "", prioridad, detalle,
       mensaje,
       userAgent: navigator.userAgent
     };
