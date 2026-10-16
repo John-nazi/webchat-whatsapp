@@ -5,7 +5,7 @@
 
 const EVOLUTION_URL = (process.env.EVOLUTION_URL || "https://evolution-soporte-mtto.onrender.com").replace(/\/+$/, "");
 const ADMIN_NOTIFY_NUMBER = process.env.ADMIN_NOTIFY_NUMBER || ""; // opcional, ej. 5218100000000
-const HUMAN_PAUSE_HOURS = Number(process.env.HUMAN_PAUSE_HOURS || 4); // si tú contestas a mano, el bot se calla X horas
+const HUMAN_PAUSE_HOURS = 10 / 60; // si tú contestas a mano, el bot se calla 10 minutos
 const OPTION_WINDOW_HOURS = 2; // tiempo para contestar el menú / mandar detalles
 
 const TAG = "🤖"; // todos los mensajes del bot empiezan con esto (así distingue bot vs. humano)
