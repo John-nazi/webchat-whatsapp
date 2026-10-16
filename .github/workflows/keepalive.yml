@@ -1,12 +1,11 @@
 name: Mantener despierto Evolution API
 
 # Render (plan gratis) se duerme tras 15 min sin visitas.
-# Este workflow lo visita cada 5 min de lunes a sábado, 6:00–22:00 hora de Monterrey (UTC-6).
+# Este workflow lo visita cada 5 min de lunes a sábado, 7:00–18:00 hora de Monterrey (UTC-6).
+# 7:00–15:30 el bot atiende normal; 15:30–18:00 avisa "fuera de horario" y pide el mensaje completo.
 on:
   schedule:
-    - cron: "*/5 12-23 * * 1-6"       # 6:00–17:59 Monterrey, lun–sáb
-    - cron: "*/5 0-3 * * 0,2,3,4,5,6" # 18:00–21:59 Monterrey, lun–sáb (en UTC ya es el día siguiente)
-    - cron: "0-15/5 4 * * 0,2,3,4,5,6"   # 22:00-22:30 Monterrey (ultimo ping 22:15, se duerme ~22:30)
+    - cron: "*/5 13-23 * * 1-6" # 7:00–17:59 Monterrey, lun–sáb (ultimo ping 17:55, se duerme ~18:10)
   workflow_dispatch: {}
 
 jobs:
