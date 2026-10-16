@@ -7,6 +7,7 @@ const EVOLUTION_URL = (process.env.EVOLUTION_URL || "https://evolution-soporte-m
 const ADMIN_NOTIFY_NUMBER = process.env.ADMIN_NOTIFY_NUMBER || ""; // opcional, ej. 5218100000000
 const HUMAN_PAUSE_HOURS = 10 / 60; // si tú contestas a mano, el bot se calla 10 minutos
 const OPTION_WINDOW_HOURS = 2; // tiempo para contestar el menú / mandar detalles
+const AUTO_APP_SEG = 30; // un mensaje tuyo sin 🤖 enviado <30 s después del cliente = respuesta automática de la app
 
 const TAG = "🤖"; // todos los mensajes del bot empiezan con esto (así distingue bot vs. humano)
 
@@ -97,19 +98,31 @@ async function enviar(serverUrl, apikey, instance, number, text) {
   });
 }
 
-async function historial(serverUrl, apikey, instance, remoteJid) {
-  const res = await evo(serverUrl, apikey, `/chat/findMessages/${encodeURIComponent(instance)}`, {
-    where: { key: { remoteJid } },
-    limit: 30,
-  });
-  const lista =
-    res?.messages?.records || res?.records || (Array.isArray(res?.messages) ? res.messages : null) ||
-    (Array.isArray(res) ? res : []);
-  return [...lista].sort((a, b) => ts(b) - ts(a)); // más reciente primero
+async function historial(serverUrl, apikey, instance, jids) {
+  // Busca en todos los identificadores del contacto (@lid y número real) y junta resultados
+  const unicos = [...new Set(jids.filter(Boolean))];
+  const vistos = new Set();
+  const todos = [];
+  for (const remoteJid of unicos) {
+    const res = await evo(serverUrl, apikey, `/chat/findMessages/${encodeURIComponent(instance)}`, {
+      where: { key: { remoteJid } },
+      limit: 30,
+    });
+    const lista =
+      res?.messages?.records || res?.records || (Array.isArray(res?.messages) ? res.messages : null) ||
+      (Array.isArray(res) ? res : []);
+    for (const m of lista) {
+      const id = m?.key?.id;
+      if (id && vistos.has(id)) continue;
+      if (id) vistos.add(id);
+      todos.push(m);
+    }
+  }
+  return todos.sort((a, b) => ts(b) - ts(a)); // más reciente primero
 }
 
 // ---------------- lógica principal ----------------
-async function decidir({ serverUrl, apikey, instance, remoteJid, pushName, texto, msgId }) {
+async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msgId }) {
   const t = texto.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
   const nombre = pushName ? ` ${pushName.split(" ")[0]}` : "";
   const menu = MENU.replace("{NOMBRE}", nombre);
@@ -120,14 +133,21 @@ async function decidir({ serverUrl, apikey, instance, remoteJid, pushName, texto
 
   let previos = [];
   try {
-    previos = (await historial(serverUrl, apikey, instance, remoteJid)).filter(
+    previos = (await historial(serverUrl, apikey, instance, jids)).filter(
       (m) => m?.key?.id !== msgId
     );
   } catch (e) {
     console.warn("No se pudo leer historial:", e.message);
   }
 
-  const ultimoMio = previos.find((m) => m?.key?.fromMe);
+  // Ignora respuestas automáticas de la app WhatsApp Business (mensaje de bienvenida/ausencia):
+  // son mensajes "míos" sin 🤖 que salen pocos segundos después de un mensaje del cliente.
+  const esAutoApp = (m) => {
+    if (textoDe(m).startsWith(TAG)) return false;
+    const t0 = ts(m);
+    return previos.some((x) => !x?.key?.fromMe && t0 - ts(x) >= 0 && t0 - ts(x) <= AUTO_APP_SEG * 1000);
+  };
+  const ultimoMio = previos.find((m) => m?.key?.fromMe && !esAutoApp(m));
   const textoMio = ultimoMio ? textoDe(ultimoMio) : "";
   const horasMio = ultimoMio ? horasDesde(ts(ultimoMio)) : Infinity;
   const esDelBot = textoMio.startsWith(TAG);
@@ -189,12 +209,15 @@ export default async function handler(req, res) {
     if (ts(data) && horasDesde(ts(data)) > 1 / 6) return res.status(200).json({ ignored: "viejo" });
 
     const texto = textoDe(data);
+    const jids = [remoteJid, key.remoteJidAlt, key.senderPn];
     const r = await decidir({
-      serverUrl, apikey, instance, remoteJid,
+      serverUrl, apikey, instance, jids,
       pushName: data?.pushName || "", texto, msgId: key.id,
     });
 
-    if (r.responder) await enviar(serverUrl, apikey, instance, remoteJid, r.responder);
+    // WhatsApp ahora usa identificadores "@lid"; respondemos al número real si viene
+    const destino = key.remoteJidAlt || key.senderPn || remoteJid;
+    if (r.responder) await enviar(serverUrl, apikey, instance, destino, r.responder);
 
     if (r.solicitud && ADMIN_NOTIFY_NUMBER) {
       const tel = (key.senderPn || key.remoteJidAlt || remoteJid).split("@")[0];
