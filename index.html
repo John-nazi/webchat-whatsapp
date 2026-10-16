@@ -108,7 +108,10 @@
    CONFIGURACIÓN
    ========================================================= */
 const WA_NUMERO   = "528126219127";   // Número receptor (código de país + número, sin + ni espacios)
-const WEBHOOK_URL = "";               // Opcional: URL de Power Automate / SharePoint / Telegram bot. Vacío = no se envía.
+const WEBHOOK_URL = "";               // Opcional: URL de Power Automate u otro servicio.
+// Aviso automático (sin abrir WhatsApp). Si llenas Telegram o WEBHOOK_URL, la solicitud se envía sola.
+const TELEGRAM_TOKEN   = "";          // Token del bot (de @BotFather)
+const TELEGRAM_CHAT_ID = "";          // Chat ID de quien atiende las solicitudes
 const RETRASO_ESCRIBIENDO = 450;      // ms de la animación "Escribiendo..."
 
 /* =========================================================
@@ -352,9 +355,23 @@ async function procesarEnvioFinal() {
   const escribiendo = mostrarEscribiendo();
   await sleep(RETRASO_ESCRIBIENDO);
   escribiendo.remove();
-  burbujaBot(formatear("✅ ¡Listo! Abriendo WhatsApp para enviar tu solicitud..."), null);
 
-  // 1) Envío opcional al webhook (no bloquea más de 3 s)
+  const conTimeout = (p) => Promise.race([p, sleep(5000).then(() => { throw new Error("timeout"); })]);
+  let enviado = false;
+
+  // 1) Telegram: llega como notificación push a quien atiende
+  if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) {
+    try {
+      const r = await conTimeout(fetch("https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: mensaje.replace(/\*/g, "") })
+      }));
+      if (r.ok) enviado = true;
+    } catch (err) { console.warn("Telegram falló:", err); }
+  }
+
+  // 2) Webhook opcional (Power Automate, etc.)
   if (WEBHOOK_URL) {
     const payload = {
       fecha: new Date().toISOString(),
@@ -363,24 +380,23 @@ async function procesarEnvioFinal() {
       userAgent: navigator.userAgent
     };
     try {
-      await Promise.race([
-        fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          keepalive: true
-        }),
-        sleep(3000)
-      ]);
-    } catch (err) {
-      console.warn("No se pudo enviar al webhook:", err);
-    }
+      const r = await conTimeout(fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }));
+      if (r.ok) enviado = true;
+    } catch (err) { console.warn("Webhook falló:", err); }
   }
 
-  // 2) Redirección a WhatsApp
-  window.location.href = url;
+  if (enviado) {
+    burbujaBot(formatear("✅ Solicitud enviada. Favor de esperar un momento, en breve se dará seguimiento."), null);
+    return;
+  }
 
-  // Respaldo por si la redirección no se dispara
+  // 3) Respaldo: abrir WhatsApp con el mensaje prellenado
+  burbujaBot(formatear("✅ ¡Listo! Abriendo WhatsApp para enviar tu solicitud..."), null);
+  window.location.href = url;
   setTimeout(() => {
     burbujaBot('Si no se abrió automáticamente, <a href="' + esc(url) + '">toca aquí para abrir WhatsApp</a>.', null);
   }, 2500);
