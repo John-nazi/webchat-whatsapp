@@ -6,6 +6,7 @@ on:
   schedule:
     - cron: "*/5 12-23 * * 1-6"       # 6:00–17:59 Monterrey, lun–sáb
     - cron: "*/5 0-3 * * 0,2,3,4,5,6" # 18:00–21:59 Monterrey, lun–sáb (en UTC ya es el día siguiente)
+    - cron: "0-15/5 4 * * 0,2,3,4,5,6"   # 22:00-22:30 Monterrey (ultimo ping 22:15, se duerme ~22:30)
   workflow_dispatch: {}
 
 jobs:
