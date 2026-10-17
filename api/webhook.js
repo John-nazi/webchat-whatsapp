@@ -186,7 +186,7 @@ async function historial(serverUrl, apikey, instance, jids) {
 async function decidir({ serverUrl, apikey, instance, jids, pushName, texto, msgId }) {
   const t = texto.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
   const n = normalizar(texto);
-  const nombre = pushName ? ` ${pushName.split(" ")[0]}` : "";
+  const nombre = ""; // no se usa el nombre de la persona en el saludo
   const corto = n.length <= 60 && !n.includes("solicitante");
 
   const esSaludo = corto && RE_SALUDO.test(n);
